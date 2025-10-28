@@ -9,3 +9,7 @@ __pycache__/
 venv/
 env/
 ENV/
+
+# Sensitive files
+secrets/
+.env

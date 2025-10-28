@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from googleLogin.user_requests import router as user_router
 
 origins = ["http://localhost:5173"]
 
@@ -13,7 +15,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello, Backend is Working"}
+app.include_router(user_router)
