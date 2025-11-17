@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Response
 from fastapi.security import HTTPBearer
 
-from firebase.auth_utils import create_jwt, get_current_user
+from firebase.auth_utils import create_jwt
 from firebase.firebase_requests import verify_firebase_token
 from firebase.schemas.users import UserCreate
 from firebase.service.user_service import SigupUserByGoogle, getUserByGoogle
@@ -10,15 +10,13 @@ router = APIRouter()
 security = HTTPBearer()  # Authorization: Bearer <idToken>
 
 
-@router.post("/api/googleSignup")
+@router.post("/googleSignup")
 async def googleSignup(token=Depends(security)):
     """
     1. Validate Firebase ID Token
     2. Create Server JWT and set cookie
     """
     decoded = verify_firebase_token(token.credentials)
-
-    print("Decoded Token:", decoded)
 
     uid = decoded["uid"]
     email = decoded.get("email")
@@ -38,7 +36,7 @@ async def googleSignup(token=Depends(security)):
     )
 
 
-@router.post("/api/googleLogin")
+@router.post("/googleLogin")
 async def googleLogin(response: Response, token=Depends(security)):
     """
     1. Validate Firebase ID Token
@@ -66,9 +64,3 @@ async def googleLogin(response: Response, token=Depends(security)):
     )
 
     return {"message": "Login Successful", "user": user_record}
-
-
-@router.get("/api/isLoggedIn")
-async def isLoggedIn(current_user=Depends(get_current_user)):
-    # Return user info from JWT
-    return current_user

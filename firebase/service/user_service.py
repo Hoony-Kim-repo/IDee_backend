@@ -46,3 +46,6 @@ async def SigupUserByGoogle(data: UserCreate):
 
     raw = await run_in_threadpool(_inner)
     return UserInDB(**raw)
+
+
+# async def SigupUserByEmail(data: UserCreate):

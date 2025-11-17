@@ -1,7 +1,7 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from googleLogin.user_requests import router as user_router
+from Authentication.index import router as user_router
 
 origins = ["http://localhost:5173"]
 

@@ -18,3 +18,23 @@ def verify_firebase_token(token):
 
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid Firebase Token")
+
+
+def validate_user_email(email: str):
+    """
+    Check duplicates in Firbase Auth + Firestore
+    """
+
+    # Firebase Auth duplicate check
+    try:
+        _ = auth.get_user_by_email(email)
+        return False  # User already exists
+    except auth.UserNotFoundError:
+        pass  # User does not exist
+
+    # Firestore duplicate check
+    query = db.collection("users").where("email", "==", email).limit(1).get()
+    if query:
+        return False  # User already exists
+
+    return True
