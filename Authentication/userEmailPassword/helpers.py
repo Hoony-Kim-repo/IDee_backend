@@ -77,16 +77,16 @@ def verify_email_code(target_email: str, code: str) -> bool:
 
     record = EMAIL_VERIFICATION_STORE.get(target_email)
     if not record:
-        return False
+        return {"success": False, "message": "email is not provided"}
 
     # Check expiration
-    if datetime.now(datetime.timezone.utc) > record["expires_at"]:
+    if datetime.now(timezone.utc) > record["expires_at"]:
         del EMAIL_VERIFICATION_STORE[target_email]  # Clean up expired code
-        return False
+        return {"success": False, "message": "Token has been expired"}
 
     # Compare codes
     if record["code"] == code:
         del EMAIL_VERIFICATION_STORE[target_email]  # Clean up used code
-        return True
+        return {"success": True}
 
-    return False
+    return {"success": False, "message": "Token does not matched"}

@@ -37,10 +37,7 @@ async def compareEmailVerificationCode(payload: EmailVerifyRequest):
     """
     Compare user input code with stored code.
     """
-    if verify_email_code(payload.email, payload.code):
-        return {"success": True, "message": "Email verified successfully."}
-    else:
-        return {"success": False, "message": "Invalid or expired verification code."}
+    return verify_email_code(payload.email, payload.code)
 
 
 @router.post("/emailSignup")
