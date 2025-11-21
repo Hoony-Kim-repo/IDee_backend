@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, Response
 from fastapi.security import HTTPBearer
 
-from firebase.auth_utils import create_jwt
-from firebase.firebase_requests import verify_firebase_token
+from firebase.firebase_requests import validate_user_email, verify_firebase_token
 from firebase.schemas.users import UserCreate
 from firebase.service.user_service import SigupUserByGoogle, getUserByGoogle
 
@@ -22,6 +21,12 @@ async def googleSignup(token=Depends(security)):
     email = decoded.get("email")
     name = decoded.get("name")
 
+    if not validate_user_email(email):
+        return {
+            "success": False,
+            "message": "User already exists",
+        }
+
     user_data = UserCreate(
         uid=uid,
         email=email,
@@ -32,12 +37,14 @@ async def googleSignup(token=Depends(security)):
     user_record = await SigupUserByGoogle(user_data)
 
     return (
-        {"message": "Sign up Successful", "user": user_record} if user_record else None
+        {"success": True, "message": "Sign up Successful", "user": user_record}
+        if user_record
+        else None
     )
 
 
 @router.post("/googleLogin")
-async def googleLogin(response: Response, token=Depends(security)):
+async def googleLogin(token=Depends(security)):
     """
     1. Validate Firebase ID Token
     2. Create server JWT and set cookie
@@ -45,22 +52,13 @@ async def googleLogin(response: Response, token=Depends(security)):
     decoded = verify_firebase_token(token.credentials)
 
     uid = decoded["uid"]
-    email = decoded.get("email")
 
     user_record = await getUserByGoogle(uid)
 
     if user_record is None:
-        return None  # User does not exist
+        return {
+            "success": False,
+            "message": "User does not exists",
+        }  # User does not exist
 
-    jwt_token = create_jwt({"uid": uid, "email": email})
-
-    response.set_cookie(
-        key="access_token",
-        value=jwt_token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        path="/",
-    )
-
-    return {"message": "Login Successful", "user": user_record}
+    return {"success": True, "message": "Login Successful", "user": user_record}

@@ -28,6 +28,7 @@ class UserCreate(UserBase):
 
     uid: str
     name: Optional[str] = None
+    password: Optional[str] = None
 
 
 class UserInDB(UserBase):
@@ -37,6 +38,7 @@ class UserInDB(UserBase):
 
     uid: str
     name: Optional[str] = None
+    password: Optional[str] = None
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

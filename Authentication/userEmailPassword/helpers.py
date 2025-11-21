@@ -5,6 +5,9 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
+from firebase_admin import auth
+
+from firebase.firebase_conn import db
 
 load_dotenv()
 

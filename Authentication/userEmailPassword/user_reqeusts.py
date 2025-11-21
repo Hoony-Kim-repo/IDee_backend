@@ -1,5 +1,9 @@
+import bcrypt
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, EmailStr
+
+from firebase.firebase_requests import validate_user_email
+from firebase.schemas.users import UserCreate
 
 from .helpers import send_verification_email, verify_email_code
 
@@ -25,8 +29,6 @@ async def sendEmailVerificationCode(payload: EmailRequest):
         return {
             "success": True,
             "message": f"Verification code sent to {payload.email}",
-            # "email": payload.email,
-            # "verification_code": verification_code,  # For testing purposes only
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -40,14 +42,32 @@ async def compareEmailVerificationCode(payload: EmailVerifyRequest):
     return verify_email_code(payload.email, payload.code)
 
 
-@router.post("/emailSignup")
-async def emailSignup(response: Response):
+@router.post("/email-signup")
+async def emailSignup(payload: UserCreate):
     """
-    1. Validate Email format
-    2. Validate Password format
-    3. Check if user already exists
-    4. if user doesn't exist, create user in Firestore
-    5. Create Server JWT and set cookie
+    1. Check if user already exists
+    2. if user doesn't exist, create user in Firestore
+    3. Return {success: Boolean}
     """
+    if payload.provider != "password":
+        raise HTTPException(
+            status_code=400,
+            detail="email-signup endpoint only supports provider='password'.",
+        )
 
-    print(response.body)
+    if not validate_user_email(payload.email):
+        return {
+            "success": False,
+            "message": "User already exists",
+        }
+
+    # Hash Password
+    hashed_pw = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt())
+    hashed_pw_str = hashed_pw.decode("utf-8")
+
+    user_data = UserCreate(
+        uid=uid,
+        email=email,
+        name=name,
+        provider="google",
+    )
