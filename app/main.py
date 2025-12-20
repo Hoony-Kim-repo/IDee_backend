@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from Authentication.index import router as user_router
+from app.api.v1 import profiles
 
 origins = ["http://localhost:5173"]
 
@@ -15,4 +15,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(user_router)
+app.include_router(profiles.router)
