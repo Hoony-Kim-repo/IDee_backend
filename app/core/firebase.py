@@ -22,13 +22,3 @@ init_firebase()
 # ------------------- Clients ------------------- #
 db = firestore.client()
 bucket = storage.bucket()
-
-
-# ------------------- Auth ------------------- #
-def verify_firebase_token(token):
-    """
-    Verify Firebase ID token and return decoded payload.
-    This module only handles Firebase Auth logic.
-    """
-    decoded_token = auth.verify_id_token(token)
-    return auth.verify_id_token(token)

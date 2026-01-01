@@ -1,14 +1,42 @@
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from firebase_admin import firestore
 
 from app.core.firebase import bucket, db
+from app.core.firebase_auth import verify_firebase_token
 
 router = APIRouter(prefix="/profile", tags=["Profiles"])
 
 
+@router.get("/{uid}")
+async def get_profile(uid: str, token=Depends(verify_firebase_token)):
+    """
+    Fetch a user profile by Firebase Auth UID.
+    """
+    if uid != token["uid"]:
+        raise HTTPException(status_code=403, detail="Unauthorized access to profile")
+
+    try:
+        doc_ref = db.collection("profiles").document(uid)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        return doc.to_dict()
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Failed to fetch profile", "detail": str(e)},
+        )
+
+
 @router.post("")
 async def create_profile(
-    uid: str = Form(...),
+    token=Depends(verify_firebase_token),
     fullName: str = Form(...),
     nickname: str = Form(None),
     phoneNumber: str = Form(None),
@@ -17,6 +45,7 @@ async def create_profile(
     profilePicture: UploadFile | None = File(None),
 ):
     try:
+        uid = token["uid"]
         image_url = None
         image_path = None
 
@@ -65,4 +94,81 @@ async def create_profile(
         raise HTTPException(
             status_code=500,
             detail={"message": "Failed to create profile", "detail": str(e)},
+        )
+
+
+@router.put("/{uid}")
+async def update_profile(
+    uid: str,
+    token=Depends(verify_firebase_token),
+    fullName: str = Form(None),
+    nickname: str = Form(None),
+    phoneNumber: str = Form(None),
+    dob: str = Form(None),
+    bio: str = Form(None),
+    profilePicture: UploadFile | None = File(None),
+):
+    """
+    Update a user's profile.
+    If a new profile picture is provided, the old one will be deleted.
+    """
+    if uid != token["uid"]:
+        raise HTTPException(status_code=403, detail="Unauthorized access to profile")
+
+    try:
+        doc_ref = db.collection("profiles").document(uid)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        existing_data = doc.to_dict()
+
+        update_data = {"updatedAt": firestore.SERVER_TIMESTAMP}
+
+        if fullName is not None:
+            update_data["fullName"] = fullName
+        if nickname is not None:
+            update_data["nickname"] = nickname
+        if phoneNumber is not None:
+            update_data["phoneNumber"] = phoneNumber
+        if dob is not None:
+            update_data["dob"] = dob
+        if bio is not None:
+            update_data["bio"] = bio
+
+        if profilePicture:
+            # Delete old image if exists
+            old_image_path = existing_data.get("profileImage", {}).get("path")
+
+            if old_image_path:
+                old_blob = bucket.blob(old_image_path)
+                if old_blob.exists():
+                    old_blob.delete()
+
+            # Upload new image
+            new_image_path = f"profile_images/{uid}/{profilePicture.filename}"
+            new_blob = bucket.blob(new_image_path)
+            new_blob.upload_from_file(
+                profilePicture.file, content_type=profilePicture.content_type
+            )
+            new_blob.make_public()
+            new_image_url = new_blob.public_url
+
+            update_data["profileImage"] = {
+                "url": new_image_url,
+                "path": new_image_path,
+            }
+
+        doc_ref.update(update_data)
+
+        return {"status_code": 200, "message": "Profile updated successfully"}
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Failed to update profile", "detail": str(e)},
         )
