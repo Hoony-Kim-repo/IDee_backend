@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from firebase_admin import firestore
 
 from app.core.firebase import bucket, db
-from app.core.firebase_auth import verify_firebase_token
+from app.core.firebase_auth import get_current_user
 
 router = APIRouter(prefix="/profile", tags=["Profiles"])
 
 
 @router.get("/{uid}")
-async def get_profile(uid: str, token=Depends(verify_firebase_token)):
+async def get_profile(uid: str, token=Depends(get_current_user)):
     """
     Fetch a user profile by Firebase Auth UID.
     """
@@ -36,7 +36,7 @@ async def get_profile(uid: str, token=Depends(verify_firebase_token)):
 
 @router.post("")
 async def create_profile(
-    token=Depends(verify_firebase_token),
+    current_user=Depends(get_current_user),
     fullName: str = Form(...),
     nickname: str = Form(None),
     phoneNumber: str = Form(None),
@@ -45,7 +45,8 @@ async def create_profile(
     profilePicture: UploadFile | None = File(None),
 ):
     try:
-        uid = token["uid"]
+        uid = current_user["uid"]
+
         image_url = None
         image_path = None
 
@@ -76,7 +77,6 @@ async def create_profile(
         db.collection("profiles").document(uid).set(profile_data)
 
         response_data = {
-            "uid": uid,
             "fullName": fullName,
             "nickname": nickname,
             "phoneNumber": phoneNumber,
@@ -100,7 +100,7 @@ async def create_profile(
 @router.put("/{uid}")
 async def update_profile(
     uid: str,
-    token=Depends(verify_firebase_token),
+    current_user=Depends(get_current_user),
     fullName: str = Form(None),
     nickname: str = Form(None),
     phoneNumber: str = Form(None),
@@ -112,7 +112,7 @@ async def update_profile(
     Update a user's profile.
     If a new profile picture is provided, the old one will be deleted.
     """
-    if uid != token["uid"]:
+    if uid != current_user["uid"]:
         raise HTTPException(status_code=403, detail="Unauthorized access to profile")
 
     try:
