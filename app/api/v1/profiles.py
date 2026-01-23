@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from firebase_admin import firestore
 
@@ -7,13 +9,12 @@ from app.core.firebase_auth import get_current_user
 router = APIRouter(prefix="/profile", tags=["Profiles"])
 
 
-@router.get("/{uid}")
-async def get_profile(uid: str, token=Depends(get_current_user)):
+@router.get("/me")
+async def get_profile(current_user=Depends(get_current_user)):
     """
     Fetch a user profile by Firebase Auth UID.
     """
-    if uid != token["uid"]:
-        raise HTTPException(status_code=403, detail="Unauthorized access to profile")
+    uid = current_user["uid"]
 
     try:
         doc_ref = db.collection("profiles").document(uid)
@@ -44,6 +45,7 @@ async def create_profile(
     bio: str = Form(None),
     profilePicture: UploadFile | None = File(None),
 ):
+    print("Post create profile")
     try:
         uid = current_user["uid"]
 
@@ -97,9 +99,8 @@ async def create_profile(
         )
 
 
-@router.put("/{uid}")
+@router.put("/me")
 async def update_profile(
-    uid: str,
     current_user=Depends(get_current_user),
     fullName: str = Form(None),
     nickname: str = Form(None),
@@ -112,8 +113,7 @@ async def update_profile(
     Update a user's profile.
     If a new profile picture is provided, the old one will be deleted.
     """
-    if uid != current_user["uid"]:
-        raise HTTPException(status_code=403, detail="Unauthorized access to profile")
+    uid = current_user["uid"]
 
     try:
         doc_ref = db.collection("profiles").document(uid)
@@ -147,7 +147,8 @@ async def update_profile(
                     old_blob.delete()
 
             # Upload new image
-            new_image_path = f"profile_images/{uid}/{profilePicture.filename}"
+            filename = f"{uuid.uuid4()}_{profilePicture.filename}"
+            new_image_path = f"profile_images/{uid}/{filename}"
             new_blob = bucket.blob(new_image_path)
             new_blob.upload_from_file(
                 profilePicture.file, content_type=profilePicture.content_type
@@ -162,7 +163,12 @@ async def update_profile(
 
         doc_ref.update(update_data)
 
-        return {"status_code": 200, "message": "Profile updated successfully"}
+        updated_doc = doc_ref.get()
+
+        return {
+            "message": "Profile updated successfully",
+            "updated_profile": updated_doc.to_dict(),
+        }
 
     except HTTPException:
         raise
