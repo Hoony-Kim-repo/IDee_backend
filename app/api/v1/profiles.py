@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -9,32 +10,6 @@ from app.core.firebase_auth import get_current_user
 router = APIRouter(prefix="/profile", tags=["Profiles"])
 
 
-@router.get("/me")
-async def get_profile(current_user=Depends(get_current_user)):
-    """
-    Fetch a user profile by Firebase Auth UID.
-    """
-    uid = current_user["uid"]
-
-    try:
-        doc_ref = db.collection("profiles").document(uid)
-        doc = doc_ref.get()
-
-        if not doc.exists:
-            raise HTTPException(status_code=404, detail="Profile not found")
-
-        return doc.to_dict()
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail={"message": "Failed to fetch profile", "detail": str(e)},
-        )
-
-
 @router.post("")
 async def create_profile(
     current_user=Depends(get_current_user),
@@ -44,6 +19,7 @@ async def create_profile(
     dob: str = Form(None),
     bio: str = Form(None),
     profilePicture: UploadFile | None = File(None),
+    tags: str = Form("[]"),
 ):
     print("Post create profile")
     try:
@@ -61,6 +37,12 @@ async def create_profile(
             blob.make_public()
             image_url = blob.public_url
 
+        try:
+            tags_list = json.loads(tags)
+
+        except Exception:
+            tags_list = []
+
         profile_data = {
             "uid": uid,
             "fullName": fullName,
@@ -72,6 +54,7 @@ async def create_profile(
                 "url": image_url,
                 "path": image_path,
             },
+            "tags": tags_list,
             "createdAt": firestore.SERVER_TIMESTAMP,
             "updatedAt": firestore.SERVER_TIMESTAMP,
         }
@@ -88,6 +71,7 @@ async def create_profile(
                 "url": image_url,
                 "path": image_path,
             },
+            "tags": tags_list,
         }
 
         return {"status_code": 200, "data": response_data}
